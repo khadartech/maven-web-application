@@ -1,0 +1,58 @@
+pipeline{
+agent any
+triggers{
+pollSCM('* * * * *')
+//pipelineTriggers([githubPush()])
+}
+options{
+timestamps()    
+buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '5', daysToKeepStr: '', numToKeepStr: '5'))
+} 
+tools{
+maven "maven3.6.3"
+}
+stages{
+stage('checkout code'){
+steps{
+git branch: 'development', credentialsId: 'ccc072b9-3703-4f30-a9f6-b76e1e6c2ec4', url: 'https://github.com/khadartech/maven-web-application.git'
+}
+}
+stage('build'){
+steps{
+sh "mvn clean package"
+}
+}
+stage('Execute sonarqube report'){
+steps{
+sh "mvn clean sonar:sonar"
+}
+}
+stage('Upload artifact into nexus'){
+steps{
+sh "mvn clean deploy"
+}
+}
+stage('Deploy Application To Tomcatserver'){
+steps{
+sshagent(['d2e65095-0991-4945-8b40-e175b7e6bd56']) {
+sh "scp -o  StrictHostKeyChecking=no target/maven-web-application.war ec2-user@13.233.184.243:/opt/apache-tomcat-9.0.54/webapps/"
+}
+}
+}
+}
+post{
+
+success{
+emailext body: '''Build is over - success!!
+
+Regards
+KK''', subject: 'Build is over - success!!', to: 'devopsjenkins81@gmail.com'
+}
+failure{
+emailext body: '''Build is over-failure!!
+
+Regards
+KK''', subject: 'Build is over-failure!!', to: 'devopsjenkins81@gmail.com'
+}
+}
+}
